@@ -1,7 +1,6 @@
 (function() {
   console.log("Script started");
 
-  // Function to load YAML file
   async function loadYAMLFile() {
     const response = await fetch(chrome.runtime.getURL('form_data.yaml'));
     if (!response.ok) {
@@ -11,7 +10,6 @@
     return jsyaml.load(text);
   }
 
-  // Function to load JSON database
   function loadDatabase() {
     return new Promise((resolve) => {
       chrome.storage.local.get('formDatabase', (result) => {
@@ -20,7 +18,6 @@
     });
   }
 
-  // Function to save to JSON database
   function saveToDatabase(data) {
     return new Promise((resolve) => {
       chrome.storage.local.set({ formDatabase: data }, () => {
@@ -29,11 +26,17 @@
     });
   }
 
-  // Function to get ChatGPT suggestion
   async function getChatGPTSuggestion(field) {
-    // Implement ChatGPT API call here
-    // For now, we'll return a dummy suggestion
-    return `Suggestion for ${field}`;
+    return new Promise((resolve, reject) => {
+      chrome.runtime.sendMessage({ action: "getChatGPTSuggestion", field }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error("Error getting suggestion:", chrome.runtime.lastError.message);
+          reject(chrome.runtime.lastError.message);
+        } else {
+          resolve(response.suggestion);
+        }
+      });
+    });
   }
 
   function fillForms(yamlData, dbData) {
@@ -43,7 +46,7 @@
       for (let i = 0; i < elements.length; i++) {
         const element = elements[i];
         const fieldName = element.name || element.id;
-        if (!fieldName) continue; // Skip elements without a name or ID
+        if (!fieldName) continue;
 
         let value = yamlData ? yamlData[fieldName] : undefined;
         value = value || dbData[fieldName];

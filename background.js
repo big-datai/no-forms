@@ -1,3 +1,40 @@
+import OpenAI from "openai";
+
+const openai = new OpenAI("");
+
+async function getChatGPTSuggestion(field) {
+  try {
+    const response = await openai.chat.completions.create({
+      model: "gpt-4-turbo",
+      messages: [{ role: "user", content: `Suggest a value for the field: ${field}` }],
+    });
+
+    const suggestion = response.choices[0].message.content.trim();
+    return suggestion;
+  } catch (error) {
+    console.error("Error getting suggestion:", error);
+    return `Suggestion for ${field}`;
+  }
+}
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.action === "showForms") {
+    console.log("Received form data:", message.data);
+    chrome.storage.local.set({ formData: message.data }, () => {
+      console.log("Form data stored in chrome.storage.local");
+    });
+    sendResponse({ status: "success" });
+  } else if (message.action === "exportYAML") {
+    exportDatabaseToYAML();
+    sendResponse({ status: "export initiated" });
+  } else if (message.action === "getChatGPTSuggestion") {
+    getChatGPTSuggestion(message.field).then((suggestion) => {
+      sendResponse({ suggestion });
+    });
+    return true; // Indicates that the response is sent asynchronously
+  }
+});
+
 // Function to load JSON database
 function loadDatabase() {
   return new Promise((resolve) => {
@@ -8,13 +45,12 @@ function loadDatabase() {
 }
 
 // Function to convert JSON to YAML and download it
-function dumpDatabaseToYAML() {
+function exportDatabaseToYAML() {
   loadDatabase().then((dbData) => {
     const yamlText = jsyaml.dump(dbData);
     const blob = new Blob([yamlText], { type: 'application/x-yaml' });
     const url = URL.createObjectURL(blob);
 
-    // Create a link element to initiate the download
     const link = document.createElement('a');
     link.href = url;
     link.download = 'form_data_dump.yaml';
@@ -35,21 +71,6 @@ chrome.alarms.create('dumpDatabaseAlarm', {
 // Handle the alarm event
 chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === 'dumpDatabaseAlarm') {
-    dumpDatabaseToYAML();
-  }
-});
-
-// Listen for messages from content script
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  if (message.action === "showForms") {
-    // Log the received form data
-    console.log("Received form data:", message.data);
-    
-    // Store the form data in chrome.storage.local
-    chrome.storage.local.set({ formData: message.data }, () => {
-      console.log("Form data stored in chrome.storage.local");
-    });
-    
-    sendResponse({ status: "success" });
+    exportDatabaseToYAML();
   }
 });

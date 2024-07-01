@@ -1,13 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>No Forms</title>
-  <link rel="stylesheet" type="text/css" href="assets/style.css">
+  <title>Form Data Logs</title>
+  <style>
+    #logs {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+  </style>
 </head>
 <body>
-  <h1>No Forms Extension</h1>
+  <h1>Form Data Logs</h1>
   <button id="viewLogs">View Logs</button>
-  <div id="logs">No logs available.</div>
+  <button id="exportYAML">Export YAML</button>
+  <div id="logs"></div>
   <script src="popup.js"></script>
 </body>
 </html>

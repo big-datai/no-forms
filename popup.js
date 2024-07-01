@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
   console.log('Popup script loaded and ready');
+  
   document.getElementById('viewLogs').addEventListener('click', () => {
     chrome.storage.local.get('formData', (result) => {
       const logsDiv = document.getElementById('logs');
@@ -13,5 +14,11 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
     console.log('Logs displayed');
+  });
+
+  document.getElementById('exportYAML').addEventListener('click', () => {
+    chrome.runtime.sendMessage({ action: "exportYAML" }, (response) => {
+      console.log('Export YAML response:', response);
+    });
   });
 });
