@@ -1,7 +1,18 @@
-document.getElementById('viewLogs').addEventListener('click', () => {
-    chrome.storage.local.get('logs', (result) => {
-        const logsDiv = document.getElementById('logs');
-        logsDiv.innerHTML = `<pre>${JSON.stringify(result.logs, null, 2)}</pre>`;
+document.addEventListener('DOMContentLoaded', () => {
+    console.log('Popup script loaded and ready');
+  
+    chrome.storage.local.get('formLogs', (result) => {
+      console.log('Retrieved formLogs from storage:', result);
+      
+      const logsDiv = document.getElementById('logs');
+      
+      if (result.formLogs) {
+        logsDiv.innerHTML = `<pre>${result.formLogs.join('\n')}</pre>`;
+        console.log("Displayed forms:", result.formLogs);
+      } else {
+        logsDiv.innerHTML = "No logs available.";
+        console.error('No form logs found in storage.');
+      }
     });
-    console.log("Logs displayed");
-});
+  });
+  
