@@ -1,30 +1,114 @@
 (function() {
   console.log("Script started");
 
-  const formData = {
-    "primary-email": "example@example.com",
-    "honey-pot": "",
-    "legal-disclaimer-checkbox": "checked"
-  };
+  // Function to load YAML file
+  async function loadYAMLFile() {
+    const response = await fetch(chrome.runtime.getURL('form_data.yaml'));
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    const text = await response.text();
+    return jsyaml.load(text);
+  }
 
-  function fillForms() {
+  // Function to load JSON database
+  function loadDatabase() {
+    return new Promise((resolve) => {
+      chrome.storage.local.get('formDatabase', (result) => {
+        resolve(result.formDatabase || {});
+      });
+    });
+  }
+
+  // Function to save to JSON database
+  function saveToDatabase(data) {
+    return new Promise((resolve) => {
+      chrome.storage.local.set({ formDatabase: data }, () => {
+        resolve();
+      });
+    });
+  }
+
+  // Function to get ChatGPT suggestion
+  async function getChatGPTSuggestion(field) {
+    // Implement ChatGPT API call here
+    // For now, we'll return a dummy suggestion
+    return `Suggestion for ${field}`;
+  }
+
+  function fillForms(yamlData, dbData) {
     const forms = document.querySelectorAll("form");
     forms.forEach((form) => {
       const elements = form.elements;
       for (let i = 0; i < elements.length; i++) {
         const element = elements[i];
-        if (formData[element.name] !== undefined) {
+        const fieldName = element.name || element.id;
+        if (!fieldName) continue; // Skip elements without a name or ID
+
+        let value = yamlData ? yamlData[fieldName] : undefined;
+        value = value || dbData[fieldName];
+        if (value === undefined) {
+          getChatGPTSuggestion(fieldName).then((suggestion) => {
+            const suggestionNode = document.createElement('span');
+            suggestionNode.textContent = suggestion;
+            suggestionNode.style.color = 'blue';
+            element.parentElement.appendChild(suggestionNode);
+          });
+          element.style.backgroundColor = "red"; // Highlight unfilled fields in red
+        } else {
           if (element.type === "checkbox" || element.type === "radio") {
-            element.checked = formData[element.name] === "checked";
+            element.checked = value === "checked";
           } else {
-            element.value = formData[element.name];
+            element.value = value;
           }
           element.style.backgroundColor = "blue"; // Highlight filled fields in blue
-        } else {
-          element.style.backgroundColor = "red"; // Highlight unfilled fields in red
+          dbData[fieldName] = value; // Update the database
         }
       }
     });
+    saveToDatabase(dbData);
+  }
+
+  async function processForms() {
+    try {
+      const yamlData = await loadYAMLFile();
+      const dbData = await loadDatabase();
+
+      const forms = document.querySelectorAll("form");
+      console.log(`Number of forms detected: ${forms.length}`);
+
+      const formNames = [];
+
+      forms.forEach((form, index) => {
+        form.style.backgroundColor = "yellow"; // Highlight the form in yellow
+        console.log(`Processing form ${index + 1}`);
+        formNames.push(`Form ${index + 1}:`);
+        const elements = form.elements;
+        console.log(`Number of elements in form ${index + 1}: ${elements.length}`);
+        for (let i = 0; i < elements.length; i++) {
+          const element = elements[i];
+          const description = getFormElementDescription(element);
+          console.log(`Detected element: ${description}`);
+          formNames.push(` - ${description}`);
+        }
+      });
+
+      console.log("Detected forms and elements:", formNames);
+
+      // Send the form names to the background script for storage
+      chrome.runtime.sendMessage({ action: "showForms", data: formNames }, (response) => {
+        if (chrome.runtime.lastError) {
+          console.error("Error sending message:", chrome.runtime.lastError.message);
+        } else {
+          console.log("Message sent to background script with response:", response);
+        }
+      });
+
+      // Fill the forms
+      fillForms(yamlData, dbData);
+    } catch (error) {
+      console.error("Error processing forms:", error);
+    }
   }
 
   function getFormElementDescription(element) {
@@ -33,41 +117,6 @@
       label = document.querySelector(`label[for="${element.id}"]`);
     }
     return label ? label.textContent.trim() : element.name || element.id || 'Unnamed element';
-  }
-
-  function processForms() {
-    const forms = document.querySelectorAll("form");
-    console.log(`Number of forms detected: ${forms.length}`);
-
-    const formNames = [];
-
-    forms.forEach((form, index) => {
-      form.style.backgroundColor = "yellow"; // Highlight the form in yellow
-      console.log(`Processing form ${index + 1}`);
-      formNames.push(`Form ${index + 1}:`);
-      const elements = form.elements;
-      console.log(`Number of elements in form ${index + 1}: ${elements.length}`);
-      for (let i = 0; i < elements.length; i++) {
-        const element = elements[i];
-        const description = getFormElementDescription(element);
-        console.log(`Detected element: ${description}`);
-        formNames.push(` - ${description}`);
-      }
-    });
-
-    console.log("Detected forms and elements:", formNames);
-
-    // Send the form names to the background script for storage
-    chrome.runtime.sendMessage({ action: "showForms", data: formNames }, (response) => {
-      if (chrome.runtime.lastError) {
-        console.error("Error sending message:", chrome.runtime.lastError.message);
-      } else {
-        console.log("Message sent to background script with response:", response);
-      }
-    });
-
-    // Fill the forms
-    fillForms();
   }
 
   function runScript() {
